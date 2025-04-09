@@ -1,0 +1,12 @@
+IO:
+  input_file:         "example.h5"
+  input_key_pstep:    "pstep/lar_vol"
+  input_key_particle: "particle/geant4"
+  input_key_event:    "event/geant4"
+  output_file:        "output.h5"
+  num_entries: -1
+  num_skip:    -1
+
+TRUTH:
+  voxel_size: [3.,3.,3.] # mm
+  photon_time_resolution: 0.0001 # us

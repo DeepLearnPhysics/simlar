@@ -1,0 +1,5 @@
+drift_velocity: 1.648        # mm/us
+light_speed: 299792.458      # mm/us
+lar_refraction_index: 1.233  # unitless
+light_yield: 20000           # photons/MeV @ 500V/cm
+

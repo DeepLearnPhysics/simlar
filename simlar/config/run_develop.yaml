@@ -1,0 +1,4 @@
+GEOMETRY: "geometry_develop"
+PHYSICS:  "physics_develop"
+SIMULATION: "simulation_develop"
+DEVICE: "cuda"
