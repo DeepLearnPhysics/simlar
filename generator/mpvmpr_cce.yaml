@@ -1,0 +1,44 @@
+# ===============
+# mpvmpr_cc.yaml
+# ===============
+
+
+SEED: -1
+## with lepton, generate 20cm from the wall
+Generator1:
+  NumEvent: [1,1]
+  NumParticle: [1,10]
+  XRange: [-1960, 1960] #mm
+  YRange: [-1960, 1960] #mm
+  ZRange: [-1960, 1960] #mm
+  TRange: [-1800000,1800000] # 2160mm / Vd=1.648mm/us = 1310us, +/-500us buffer in ns
+  AddParent: True
+  Particles:
+    -
+      PDG:      [11,-11]
+      NumRange: [1,1]
+      KERange:  [0.01,1.2]
+      UseMom:   True
+      Weight:   1
+
+    -
+      PDG:      [211,-211,111]
+      NumRange: [0,2]
+      KERange:  [0.06,1.3]
+      UseMom:   True
+      Weight:   1
+
+    -
+      PDG:      [22]
+      NumRange: [0,2]
+      KERange:  [0.01,1.2]
+      UseMom:   True
+      Weight:   1
+
+    -
+      PDG:      [2212]
+      NumRange: [0,5]
+      KERange:  [0.2,0.65]
+      UseMom:   True
+      Weight:   1
+
