@@ -7,12 +7,27 @@ import numpy as np
 
 INVALID_TRACK_ID=pow(2,31)-1
 
+
 class DetectorSimulator:
 
     def __init__(self,cfg):
+        '''
+        Initialize the DetectorSimulator with a configuration file.
+        Parameters
+        ----------
+        cfg : str or dict
+            The configuration file path or a dictionary containing the configuration parameters.
+        '''
         self.configure(cfg)
 
     def configure(self,cfg):
+        '''
+        Configure the DetectorSimulator with a configuration file.
+        Parameters
+        ----------
+        cfg : str or dict
+            The configuration file path or a dictionary containing the configuration parameters.
+        '''
         if type(cfg) is str:
             cfg = load_config(cfg)
 
@@ -53,12 +68,17 @@ class DetectorSimulator:
         self.config['DEVICE'] = str(device)
 
     def process(self):
+        '''
+        Process the input file and generate the output file with simulated data.
+        '''
 
         print('\nStart event processing')
         with h5.File(self.output_file,'w') as fout:
 
             print('Opening output file :',self.output_file)            
             fout.attrs['config'] = json.dumps(self.config)
+            fout.attrs['pmt_positions'] = self.sim_pmt.pmt_positions.cpu().detach().numpy()
+            fout.attrs['pmt_ids'] = self.sim_pmt.pmt_ids.cpu().detach().numpy()
 
             input_checksum = get_file_checksum(self.input_file)
 

@@ -1,17 +1,29 @@
 import torch
 
 def generate_pmt_positions(lx, ly, lz, spacing_y, spacing_z, gap_pmt_active):
-    '''
-    Generate hexagonal grid of PMTs on the y-z plane of a cubic detector
-    :param lx: length of the cube in x direction
-    :param ly: length of the cube in y direction
-    :param lz: length of the cube in z direction
-    :param spacing_y: spacing between PMTs in y direction
-    :param spacing_z: spacing between PMTs in z direction
-    :param gap_pmt_anode: spacing between a pmt plane and the closest active volume boundary
-    :return:
-    pmt_coords: coordinates of the PMTs
-    '''
+    """
+    Generate PMT positions in a hexagonal grid pattern.
+    Parameters
+    ----------
+    lx : float
+        Length of the active volume in the x-direction.
+    ly : float
+        Length of the active volume in the y-direction.
+    lz : float
+        Length of the active volume in the z-direction.
+    spacing_y : float
+        Spacing between PMTs in the y-direction.
+    spacing_z : float
+        Spacing between PMTs in the z-direction.
+    gap_pmt_active : float
+        Gap between the PMT and the active volume.
+    Returns
+    -------
+    pmt_coords : torch.Tensor
+        Tensor containing the x, y, z coordinates of the PMTs.
+    pmt_ids : torch.Tensor
+        Tensor containing the IDs of the PMTs.
+    """
 
     grid_y = int(ly / spacing_y)
     grid_z = int(lz / spacing_z)
