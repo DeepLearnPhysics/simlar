@@ -105,9 +105,11 @@ class PhotonTransport:
             if pos_mask_v[i].sum() < 1: continue
             pmt_pos = self.pmt_positions[pmt_mask_v[i]]
             pmt_ids = self.pmt_ids[pmt_mask_v[i]]
-            nph_survived, tof = self.survived_photon2pmts(num_photons[pos_mask_v[i]], points[pos_mask_v[i]], pmt_pos)
-            data=[]
 
+            pos = points[pos_mask_v[i]]
+            if len(points[pos_mask_v[i]]) < 1: continue
+            nph_survived, tof = self.survived_photon2pmts(num_photons[pos_mask_v[i]], pos, pmt_pos)
+            data=[]
             res_id = []
             res_t  = []
             res_n  = []
@@ -119,7 +121,7 @@ class PhotonTransport:
 
                 n = torch.zeros(size=(len(ts),),dtype=torch.float32,device=self.device)
                 #n.index_add_(0, ts_map, nph * solid_angle[:,j] * ce)
-                n.index_add_(0, ts_map, nph_survived)
+                n.index_add_(0, ts_map, nph_survived[:,j])
                 res_n.append(n)
 
             res_id_v.append(torch.concat(res_id))
@@ -144,14 +146,13 @@ class PhotonTransport:
             tof: torch.Tensor
                 A tensor of shape (N, M) containing the time of flight for each photon to each PMT.
         '''
-        if len(pos) < 1: continue
-
         r, arcsin, solid_angle = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
         tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
+        # to verify tof need the float value, otherwise all 0
+        #tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin).T
 
         ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
-
-        return tof, nph * solid_angle * ce
+        return nph.unsqueeze(1) * solid_angle * ce, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
         '''
