@@ -146,13 +146,13 @@ class PhotonTransport:
             tof: torch.Tensor
                 A tensor of shape (N, M) containing the time of flight for each photon to each PMT.
         '''
-        r, arcsin, solid_angle = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
+        r, arcsin, number_frac = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
         tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
         # to verify tof need the float value, otherwise all 0
         #tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin).T
 
         ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
-        return nph.unsqueeze(1) * solid_angle * ce, tof
+        return nph.unsqueeze(1) * number_frac * ce, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
         '''
@@ -177,6 +177,7 @@ class PhotonTransport:
         sin = dx / r
         arcsin = torch.arcsin(sin)
 
-        solid_angle = (self.sensor_radius / r) ** 2 / 4. * (1 - sin ** 2)
+        #solid_angle = (self.sensor_radius / r) ** 2 / 4. * (1 - sin ** 2)
+        number_frac = torch.arctan(self.sensor_radius / r)/torch.pi
 
-        return r, arcsin, solid_angle
+        return r, arcsin, number_frac
