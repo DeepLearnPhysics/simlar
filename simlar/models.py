@@ -103,11 +103,11 @@ class PhotonTransport:
         res_id_v,res_t_v,res_n_v = [],[],[]
         for i in range(len(pos_mask_v)):
             if pos_mask_v[i].sum() < 1: continue
+            pos = points[pos_mask_v[i]]
+            if len(pos) < 1: continue
             pmt_pos = self.pmt_positions[pmt_mask_v[i]]
             pmt_ids = self.pmt_ids[pmt_mask_v[i]]
 
-            pos = points[pos_mask_v[i]]
-            if len(points[pos_mask_v[i]]) < 1: continue
             nph_survived, tof = self.survived_photon2pmts(num_photons[pos_mask_v[i]], pos, pmt_pos)
             data=[]
             res_id = []
