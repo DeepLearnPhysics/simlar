@@ -174,7 +174,7 @@ class PhotonTransport:
         '''
         r = torch.cdist(photon_pos, pmt_pos)
         dx = torch.abs(photon_pos[:, None, 0] - pmt_pos[None, :, 0])
-        sin = dx / r
+        sin = torch.abs(dx / r)
         arcsin = torch.arcsin(sin)
 
         solid_angle = (self.sensor_radius / r) ** 2 / 4. * (1 - sin ** 2)
