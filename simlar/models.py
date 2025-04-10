@@ -118,7 +118,7 @@ class PhotonTransport:
             dx = pos[:, None, 0] - pmt_pos[None,:,0]
             sin = dx/r
 
-            solid_angle = (self.sensor_radius/r)**2 / 4. * torch.sqrt(1-sin**2)
+            solid_angle = (self.sensor_radius/r)**2 / 4. * (1-sin**2)
 
             ce = 1 / (1 + torch.exp(-self.sigmoid_coeff * 180. / torch.pi * (torch.abs(torch.pi / 2 - torch.arcsin(sin)) - torch.pi / 4)))
 
