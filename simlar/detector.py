@@ -55,3 +55,17 @@ def generate_pmt_positions(lx, ly, lz, spacing_y, spacing_z, gap_pmt_active):
     return pmt_coords, torch.arange( pmt_coords.shape[0], dtype=torch.int32)
 
 
+def pmt_collection_efficiency(x: torch.Tensor, **kwargs):
+    '''
+    Calculates the sensor angular efficiency from a photon
+    Parameters
+    ----------
+    x: tensor of angles, shape (N_photon, N_pmt)
+    Returns
+    -------
+    efficiency: tensor of efficiencies (N_photon, N_pmt)
+    '''
+
+    sigmoid_coeff = kwargs.get('sigmoid_coeff', 0.15)
+    efficiency = 1 / (1 + torch.exp(-sigmoid_coeff * 180. / torch.pi * (torch.abs(np.pi / 2 - x) - torch.pi / 4)))
+    return efficiency

@@ -1,5 +1,5 @@
 import torch
-from .detector import generate_pmt_positions
+from .detector import generate_pmt_positions, pmt_collection_efficiency
 
 
 class PhotonTransport:
@@ -95,47 +95,31 @@ class PhotonTransport:
         '''
         
         pos_mask_v = [(points[:,0]>  self.cathode_thickness/2.) & (points[:,0]<(self.active_xrange[1]+self.gap_pmt_active)),
-                    (points[:,0]<(-self.cathode_thickness/2.)) & (points[:,0]>(self.active_xrange[0]-self.gap_pmt_active))] 
+                    (points[:,0]<(-self.cathode_thickness/2.)) & (points[:,0]>(self.active_xrange[0]-self.gap_pmt_active))]
 
         pmt_mask_v = [self.pmt_positions[:,0]>self.cathode_thickness/2., self.pmt_positions[:,0]<(-self.cathode_thickness/2.)]
 
         pmt_data=[]
         res_id_v,res_t_v,res_n_v = [],[],[]
         for i in range(len(pos_mask_v)):
-            if pos_mask_v[i].sum()<1: continue
-
-            pos = points[pos_mask_v[i]]
-            nph = num_photons[pos_mask_v[i]]
-
+            if pos_mask_v[i].sum() < 1: continue
             pmt_pos = self.pmt_positions[pmt_mask_v[i]]
             pmt_ids = self.pmt_ids[pmt_mask_v[i]]
-            
-            if len(pos)<1: continue
-        
-            r = torch.cdist(pos[:,:3],pmt_pos)
-            tof = ((r.T/self.c+pos[:,3])*self.ns2bin+0.5).T.to(torch.int32)
-            
-            dx = pos[:, None, 0] - pmt_pos[None,:,0]
-            sin = dx/r
-
-            solid_angle = (self.sensor_radius/r)**2 / 4. * torch.sqrt(1-sin**2)
-
-            ce = 1 / (1 + torch.exp(-self.sigmoid_coeff * 180. / torch.pi * (torch.abs(torch.pi / 2 - torch.arcsin(sin)) - torch.pi / 4)))
-
-            
+            nph_survived, tof = self.survived_photon2pmts(num_photons[pos_mask_v[i]], points[pos_mask_v[i]], pmt_pos)
             data=[]
 
             res_id = []
             res_t  = []
             res_n  = []
-            for j in range(len(pmt_pos)):
+            for j, ppos in enumerate(pmt_pos):
                 ts, ts_map = torch.unique(tof[:,j],return_inverse=True)
 
                 res_t.append(ts)
                 res_id.append(torch.ones(size=(len(ts),),dtype=torch.int32,device=self.device)*pmt_ids[j])
 
                 n = torch.zeros(size=(len(ts),),dtype=torch.float32,device=self.device)
-                n.index_add_(0, ts_map, nph * solid_angle[:,j])
+                #n.index_add_(0, ts_map, nph * solid_angle[:,j] * ce)
+                n.index_add_(0, ts_map, nph_survived)
                 res_n.append(n)
 
             res_id_v.append(torch.concat(res_id))
@@ -143,3 +127,55 @@ class PhotonTransport:
             res_n_v.append(torch.concat(res_n))
 
         return torch.concat(res_id_v), torch.concat(res_t_v), torch.concat(res_n_v)
+
+    def survived_photon2pmts(self, nph, pos, pmt_pos):
+        '''
+            Function to calculate the number of photoelectrons detected by PMTs.
+            Parameters
+            ----------
+            num_photons : torch.Tensor
+                A tensor of shape (N,) containing the number of photons emitted from each point.
+            points : torch.Tensor
+                A tensor of shape (N, 4) containing the (x, y, z, time) coordinates of each photon emission point.
+            Returns
+            -------
+            nph_survived: torch.Tensor
+                A tensor of shape (N, M) containing the number of photons that survived the propagation to the M PMTs.
+            tof: torch.Tensor
+                A tensor of shape (N, M) containing the time of flight for each photon to each PMT.
+        '''
+        if len(pos) < 1: continue
+
+        r, arcsin, solid_angle = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
+        tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
+
+        ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
+
+        return tof, nph * solid_angle * ce
+
+    def propagate_photon2pmts(self, photon_pos, pmt_pos):
+        '''
+        Function to calculate the relative spatial relations between the photon and pmt positions.
+        Parameters
+        ----------
+        photon_pos : torch.Tensor
+            A tensor of shape (N, 3) containing the photon emission points.
+        pmt_pos : torch.Tensor
+            A tensor of shape (M, 3) containing the pmt coordinates.
+        Returns
+        -------
+        torch.Tensor
+            A tensor of shape (N, M) containing the euclidean distances between the photon_pos and pmt_pos.
+        torch.Tensor
+            A tensor of shape (N, M) containing the angle of photons w.r.t PMT normal seen by each PMT
+        torch.Tensor
+            A tensor of shape (N, M) containing solid angle spanned by each PMT as seen from the photons.
+        '''
+        r = torch.cdist(photon_pos, pmt_pos)
+        dx = torch.abs(photon_pos[:, None, 0] - pmt_pos[None, :, 0])
+        sin = dx / r
+        arcsin = torch.arcsin(sin)
+
+        solid_angle = (self.sensor_radius / r) ** 2 / 4. * (1 - sin ** 2)
+
+        return r, arcsin, solid_angle
