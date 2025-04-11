@@ -146,12 +146,12 @@ class PhotonTransport:
             tof: torch.Tensor
                 A tensor of shape (N, M) containing the time of flight for each photon to each PMT.
         '''
-        r, arcsin, solid_angle = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
+        r, arccos, solid_angle = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
         tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
         # to verify tof need the float value, otherwise all 0
-        #tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin).T
+        #tof = (r.T / self.c + pos[:, 3]).T
 
-        ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
+        ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
         return nph.unsqueeze(1) * solid_angle * ce, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
@@ -174,9 +174,13 @@ class PhotonTransport:
         '''
         r = torch.cdist(photon_pos, pmt_pos)
         dx = torch.abs(photon_pos[:, None, 0] - pmt_pos[None, :, 0])
-        sin = torch.abs(dx / r)
-        arcsin = torch.arcsin(sin)
+        cos = torch.clamp(torch.abs(dx / r), max=1.0)
+        arccos = torch.acos(cos)
 
-        solid_angle = (self.sensor_radius / r) ** 2 / 4. * (1 - sin ** 2)
-
-        return r, arcsin, solid_angle
+        solid_angle = (self.sensor_radius / r) ** 2 / 4. * cos ** 2
+        if torch.isnan(arccos).any():
+            mask = torch.isnan(arccos)
+            raise ValueError("arccos is NaN, r input: ", r[mask],
+                             " dx input: ", dx[mask], " angle input: ",
+                             arccos[mask], " solid_angle: ", solid_angle[mask])
+        return r, arccos, solid_angle
