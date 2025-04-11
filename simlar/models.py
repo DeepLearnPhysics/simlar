@@ -26,6 +26,7 @@ class PhotonTransport:
         self.time_resolution = config['SIMULATION']['TRUTH']['photon_time_resolution']
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
+        self.mean_pe_threshold = config['SIMULATION']['TRUTH']['mean_pe_threshold']
         self.device = 'cpu'
 
         lx = self.active_xrange[1] - self.active_xrange[0]
@@ -115,14 +116,16 @@ class PhotonTransport:
             res_n  = []
             for j, ppos in enumerate(pmt_pos):
                 ts, ts_map = torch.unique(tof[:,j],return_inverse=True)
-
-                res_t.append(ts)
-                res_id.append(torch.ones(size=(len(ts),),dtype=torch.int32,device=self.device)*pmt_ids[j])
-
                 n = torch.zeros(size=(len(ts),),dtype=torch.float32,device=self.device)
                 #n.index_add_(0, ts_map, nph * solid_angle[:,j] * ce)
                 n.index_add_(0, ts_map, nph_survived[:,j])
-                res_n.append(n)
+                
+                threshold = n >= self.mean_pe_threshold
+                # Remove entries with expected mean photo electrons below threshold value
+
+                res_t.append(ts[threshold])
+                res_id.append(torch.ones(size=(len(res_t[-1]),),dtype=torch.int32,device=self.device)*pmt_ids[j])
+                res_n.append(n[threshold])
 
             res_id_v.append(torch.concat(res_id))
             res_t_v.append(torch.concat(res_t))
@@ -152,6 +155,10 @@ class PhotonTransport:
         #tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin).T
 
         ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
+        if torch.isnan(ce).any():
+            print('ce',ce)
+        if torch.isnan(number_frac).any():
+            print('number_frac',number_frac)
         return nph.unsqueeze(1) * number_frac * ce, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
@@ -174,10 +181,10 @@ class PhotonTransport:
         '''
         r = torch.cdist(photon_pos, pmt_pos)
         dx = torch.abs(photon_pos[:, None, 0] - pmt_pos[None, :, 0])
-        sin = dx / r
+        sin =torch.clamp(dx/r, max=1.0)
         arcsin = torch.arcsin(sin)
 
         #solid_angle = (self.sensor_radius / r) ** 2 / 4. * (1 - sin ** 2)
-        number_frac = torch.arctan(self.sensor_radius / r)/torch.pi
+        number_frac = torch.arctan(self.sensor_radius / r)/torch.pi * torch.cos(arcsin)
 
         return r, arcsin, number_frac
