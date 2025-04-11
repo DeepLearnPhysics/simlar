@@ -177,6 +177,7 @@ class PhotonTransport:
         sin = torch.clamp(torch.abs(dx / r), max=1.0)
         arcsin = torch.asin(sin)
 
+
         number_frac = torch.atan(self.sensor_radius * torch.sqrt(1 - sin**2) / r) / torch.pi
 
         if torch.isnan(arcsin).any() and self.debug_mode:
@@ -184,4 +185,5 @@ class PhotonTransport:
             raise ValueError("arcsin is NaN, r input: ", r[mask],
                              " dx input: ", dx[mask], " angle input: ",
                              arcsin[mask], " number_frac: ", number_frac[mask])
+            
         return r, arcsin, number_frac
