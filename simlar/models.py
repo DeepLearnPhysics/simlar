@@ -27,7 +27,7 @@ class PhotonTransport:
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
         self.device = 'cpu'
-        self.debug_mode = config['DEBUG'].get('debug_mode', False)
+        self.debug_mode = config.get('DEBUG', False)
 
         lx = self.active_xrange[1] - self.active_xrange[0]
         ly = config['GEOMETRY']['TPC']['active_volume']['y']

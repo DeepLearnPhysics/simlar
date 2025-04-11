@@ -81,6 +81,9 @@ def build_config(config):
                 raise ValueError(f"Missing key '{key}' in user configuration")
             if not config[key] in list_available_devices():
                 raise ValueError(f"Unavailable device '{config[key]}' requested")
+        elif key == 'DEBUG':
+            if not key in config:
+                raise ValueError(f"Missing key '{key}' in user configuration")
         else:
             if not key in config:
                 raise ValueError(f"Missing key '{key}' in user configuration")
