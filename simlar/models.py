@@ -27,6 +27,7 @@ class PhotonTransport:
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
         self.device = 'cpu'
+        self.debug_mode = config.get('DEBUG', False)
 
         lx = self.active_xrange[1] - self.active_xrange[0]
         ly = config['GEOMETRY']['TPC']['active_volume']['y']
@@ -120,7 +121,6 @@ class PhotonTransport:
                 res_id.append(torch.ones(size=(len(ts),),dtype=torch.int32,device=self.device)*pmt_ids[j])
 
                 n = torch.zeros(size=(len(ts),),dtype=torch.float32,device=self.device)
-                #n.index_add_(0, ts_map, nph * solid_angle[:,j] * ce)
                 n.index_add_(0, ts_map, nph_survived[:,j])
                 res_n.append(n)
 
@@ -149,7 +149,7 @@ class PhotonTransport:
         r, arcsin, number_frac = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
         tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
         # to verify tof need the float value, otherwise all 0
-        #tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin).T
+        #tof = (r.T / self.c + pos[:, 3]).T
 
         ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
         return nph.unsqueeze(1) * number_frac * ce, tof
@@ -174,10 +174,16 @@ class PhotonTransport:
         '''
         r = torch.cdist(photon_pos, pmt_pos)
         dx = torch.abs(photon_pos[:, None, 0] - pmt_pos[None, :, 0])
-        sin = dx / r
-        arcsin = torch.arcsin(sin)
+        sin = torch.clamp(torch.abs(dx / r), max=1.0)
+        arcsin = torch.asin(sin)
 
-        #solid_angle = (self.sensor_radius / r) ** 2 / 4. * (1 - sin ** 2)
-        number_frac = torch.arctan(self.sensor_radius / r)/torch.pi
 
+        number_frac = torch.atan(self.sensor_radius * torch.sqrt(1 - sin**2) / r) / torch.pi
+
+        if torch.isnan(arcsin).any() and self.debug_mode:
+            mask = torch.isnan(arcsin)
+            raise ValueError("arcsin is NaN, r input: ", r[mask],
+                             " dx input: ", dx[mask], " angle input: ",
+                             arcsin[mask], " number_frac: ", number_frac[mask])
+            
         return r, arcsin, number_frac
