@@ -27,6 +27,7 @@ class PhotonTransport:
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
         self.device = 'cpu'
+        self.debug_mode = config['DEBUG'].get('debug_mode', False)
 
         lx = self.active_xrange[1] - self.active_xrange[0]
         ly = config['GEOMETRY']['TPC']['active_volume']['y']
@@ -145,13 +146,13 @@ class PhotonTransport:
             tof: torch.Tensor
                 A tensor of shape (N, M) containing the time of flight for each photon to each PMT.
         '''
-        r, arccos, num_frac = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
+        r, arcsin, number_frac = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
         tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
         # to verify tof need the float value, otherwise all 0
         #tof = (r.T / self.c + pos[:, 3]).T
 
-        ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
-        return nph.unsqueeze(1) * num_frac * ce, tof
+        ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
+        return nph.unsqueeze(1) * number_frac * ce, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
         '''
@@ -176,11 +177,11 @@ class PhotonTransport:
         sin = torch.clamp(torch.abs(dx / r), max=1.0)
         arcsin = torch.asin(sin)
 
-        num_frac = torch.atan(self.sensor_radius * torch.sqrt(1 - sin**2) / r) / torch.pi
+        number_frac = torch.atan(self.sensor_radius * torch.sqrt(1 - sin**2) / r) / torch.pi
 
-        if torch.isnan(arcsin).any():
+        if torch.isnan(arcsin).any() and self.debug_mode:
             mask = torch.isnan(arcsin)
             raise ValueError("arcsin is NaN, r input: ", r[mask],
                              " dx input: ", dx[mask], " angle input: ",
-                             arcsin[mask], " num_frac: ", num_frac[mask])
-        return r, arcsin, num_frac
+                             arcsin[mask], " number_frac: ", number_frac[mask])
+        return r, arcsin, number_frac
