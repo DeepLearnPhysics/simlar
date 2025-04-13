@@ -8,5 +8,6 @@ IO:
   num_skip:    -1
 
 TRUTH:
+  mean_pe_threshold: 0.1
   voxel_size: [3.,3.,3.] # mm
   photon_time_resolution: 0.0001 # us

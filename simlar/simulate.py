@@ -7,7 +7,6 @@ import numpy as np
 
 INVALID_TRACK_ID=pow(2,31)-1
 
-
 class DetectorSimulator:
 
     def __init__(self,cfg):
@@ -108,16 +107,24 @@ class DetectorSimulator:
 
                 num_entries = self.num_entries
 
-                ds_id  = fout.create_dataset('event', (num_entries,), dtype=h5_event_dtype)
-                ds_tpc = fout.create_dataset('tpc', (num_entries,), dtype=h5_tpc_dtype)
-                ds_pmt = fout.create_dataset('pmt', (num_entries,), dtype=h5_pmt_dtype)
+                void_entries = (ds_event_v['num_particles'] < 1) | (ds_event_v['num_steps'] < 1)
+                void_entries = void_entries[self.num_skip:self.num_skip+self.num_entries]
+
+                ds_id  = fout.create_dataset('event', (num_entries-void_entries.sum(),), dtype=h5_event_dtype)
+                ds_tpc = fout.create_dataset('tpc', (num_entries-void_entries.sum(),), dtype=h5_tpc_dtype)
+                ds_pmt = fout.create_dataset('pmt', (num_entries-void_entries.sum(),), dtype=h5_pmt_dtype)
+                ds_part_out = fout.create_dataset('particle/geant4', (num_entries-void_entries.sum(),), dtype=ds_part_v.dtype)
                 print(f"Processing {num_entries} entries from {self.input_file}...")
-                for entry in range(num_entries):
-                    if entry < self.num_skip:
+                output_index = 0
+                for index in range(num_entries):
+                    entry = index + self.num_skip
+                    if void_entries[index]:
+                        # Skip empty entries
+                        print(f"Skipping entry {entry} with no particles or steps")
                         continue
+                    ds_event = ds_event_v[entry]
                     ds_step  = ds_step_v[entry]
                     ds_part  = ds_part_v[entry]
-                    ds_event = ds_event_v[entry]
                     
                     # Exclude segments w/ invlaid track ID 
                     mask = ~(ds_step['track_id'] == INVALID_TRACK_ID)
@@ -142,9 +149,10 @@ class DetectorSimulator:
                     # convert position into voxels
                     pos = torch.as_tensor(np.column_stack([ds_step['x'],ds_step['y'],ds_step['z'],ds_step['t']])).to(self.device)
                     
-                    idx  = torch.zeros(size=(len(pos),3),dtype=torch.int32)
+                    idx  = torch.zeros(size=(len(pos),4),dtype=torch.int32)
                     for i in range(3):
                         idx[:,i] = ((pos[:,i] - self.volume[i][0]) / self.voxel_size[i] - 0.5).to(torch.int32)
+                    idx[:,3] = torch.as_tensor(ds_step['track_id'])
                     
                     res0, idx_map = torch.unique(idx, dim=0, return_inverse=True)
                     idx_map = idx_map.to(self.device)
@@ -156,6 +164,7 @@ class DetectorSimulator:
                     res0 = res0.cpu().detach().numpy()
                     res1 = res1.cpu().detach().numpy()
                     tpc = np.zeros(shape=(len(res0)),dtype=TPCType)
+                    tpc['track_id'] = res0[:,3]
                     tpc['ix'] = res0[:,0]
                     tpc['iy'] = res0[:,1]
                     tpc['iz'] = res0[:,2]
@@ -164,17 +173,28 @@ class DetectorSimulator:
                     tpc['nphotons'] = res1[2,:]
                                     
                     pmt_ids, pmt_ts, pmt_nphotons = self.sim_pmt.get_pe(photons, pos)
+
                     pmt = np.zeros(shape=(len(pmt_ids)),dtype=PMTType)
                     pmt['id'] = pmt_ids.cpu().detach().numpy()
                     pmt['t' ] = pmt_ts.cpu().detach().numpy()
                     pmt['nphotons'] = pmt_nphotons.cpu().detach().numpy()
-
-                    ds_tpc[entry]=tpc
-                    ds_pmt[entry]=pmt
 
                     event = np.zeros(shape=(len(ds_event)),dtype=EventType)
                     event['run_id'] = ds_event['run_id']
                     event['event_id'] = ds_event['event_id']
                     event['input_filename'][:] = self.input_file
                     event['input_checksum'][:] = input_checksum
+
+                    part_out = np.zeros(shape=(len(ds_part),),dtype=ds_part_v.dtype)
+                    part_out[:] = ds_part
+
+                    ds_tpc[output_index]=tpc
+                    ds_pmt[output_index]=pmt
+                    ds_id[output_index]=event
+                    ds_part_out[output_index]=part_out
+                    output_index += 1
+
                     print(f'Entry {entry:4d} with {len(ds_step):6d} segments: {time.time()-t0:.3f} seconds')
+
+                assert output_index == len(ds_tpc), f"Output index {output_index} does not match the number of entries {len(ds_tpc)}"
+    
