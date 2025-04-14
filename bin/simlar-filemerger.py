@@ -2,7 +2,7 @@
 
 import h5py, os
 import numpy as np
-import blob
+import glob
 
 def main(output_file, *args):
     """
@@ -39,7 +39,7 @@ def main(output_file, *args):
                 if key in f.attrs:
                     if meta_map[key] is None:
                         meta_map[key]=f.attrs[key]
-                    else:
+                    elif not key == 'config':
                         if type(meta_map[key]) in [type(dict()), type(str())]:
                             valid = (meta_map[key] == f.attrs[key])
                         elif type(meta_map[key]) == np.ndarray:
@@ -48,6 +48,12 @@ def main(output_file, *args):
                             raise ValueError(f'Unsupported type for attribute {key}: {type(meta_map[key])}')
 
                         if not valid:
+                            print('Reference....')
+                            print(meta_map[key])
+                                
+                            print('\nSubject...')
+                            print(f.attrs[key])
+                            
                             raise ValueError(f"Attribute {key} contents mismatch for file: {f.filename}")                       
                 else:
                     print(f"Attribute {key} not found in {f.filename}")
@@ -86,11 +92,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     flist = []
-    for expr in *args.input_files:
+    for expr in args.input_files:
         local_flist = glob.glob(expr)
         if len(local_flist) < 1:
             print(f"Error: No files found matching {expr}")
             sys.exit(1)
         flist.extend(local_flist)
 
-    main(args.output_file, flist)
+    main(args.output_file, *flist)
