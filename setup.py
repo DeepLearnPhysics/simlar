@@ -14,7 +14,7 @@ setup(
     description='Simulation for LArTPC',
     license='MIT',
     keywords='simlar',
-    scripts=['bin/simlar-config.py','bin/simlar-run.py'],
+    scripts=['bin/simlar-config.py','bin/simlar-run.py','bin/simlar-filemerger.py'],
     packages=['simlar'],
     package_data={'simlar': ['config/*.yaml']},
     install_requires=[
