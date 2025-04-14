@@ -173,11 +173,13 @@ class DetectorSimulator:
                     tpc['nphotons'] = res1[2,:]
                                     
                     pmt_ids, pmt_ts, pmt_nphotons = self.sim_pmt.get_pe(photons, pos)
-
-                    pmt = np.zeros(shape=(len(pmt_ids)),dtype=PMTType)
-                    pmt['id'] = pmt_ids.cpu().detach().numpy()
-                    pmt['t' ] = pmt_ts.cpu().detach().numpy()
-                    pmt['nphotons'] = pmt_nphotons.cpu().detach().numpy()
+                    if pmt_ids is None:
+                        pmt = np.zeros(shape=(len(pmt_ids)),dtype=PMTType)
+                    else:
+                        pmt = np.zeros(shape=(len(pmt_ids)),dtype=PMTType)
+                        pmt['id'] = pmt_ids.cpu().detach().numpy()
+                        pmt['t' ] = pmt_ts.cpu().detach().numpy()
+                        pmt['nphotons'] = pmt_nphotons.cpu().detach().numpy()
 
                     event = np.zeros(shape=(len(ds_event)),dtype=EventType)
                     event['run_id'] = ds_event['run_id']

@@ -130,8 +130,10 @@ class PhotonTransport:
             res_id_v.append(torch.concat(res_id))
             res_t_v.append(torch.concat(res_t))
             res_n_v.append(torch.concat(res_n))
-
-        return torch.concat(res_id_v), torch.concat(res_t_v), torch.concat(res_n_v)
+        if len(res_id_v):
+            return torch.concat(res_id_v), torch.concat(res_t_v), torch.concat(res_n_v)
+        else:
+            return None, None, None
 
     def survived_photon2pmts(self, nph, pos, pmt_pos):
         '''
