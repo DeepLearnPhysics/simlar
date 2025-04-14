@@ -2,7 +2,7 @@
 
 import h5py, os
 import numpy as np
-
+import blob
 
 def main(output_file, *args):
     """
@@ -11,7 +11,7 @@ def main(output_file, *args):
     Parameters:
     - args: list of str, paths to the HDF5 files to be merged.
     """
-    if len(args) < 3:
+    if len(args) < 2:
         print("Please provide at least two HDF5 files to merge.")
         return
 
@@ -84,4 +84,13 @@ if __name__ == "__main__":
     parser.add_argument('input_files', nargs='+', help='Input HDF5 files to merge')
 
     args = parser.parse_args()
-    main(args.output_file, *args.input_files)
+
+    flist = []
+    for expr in *args.input_files:
+        local_flist = glob.glob(expr)
+        if len(local_flist) < 1:
+            print(f"Error: No files found matching {expr}")
+            sys.exit(1)
+        flist.extend(local_flist)
+
+    main(args.output_file, flist)
