@@ -174,7 +174,7 @@ class DetectorSimulator:
                                     
                     pmt_ids, pmt_ts, pmt_nphotons = self.sim_pmt.get_pe(photons, pos)
                     if pmt_ids is None:
-                        pmt = np.zeros(shape=(len(pmt_ids)),dtype=PMTType)
+                        pmt = np.zeros(shape=(0,)),dtype=PMTType)
                     else:
                         pmt = np.zeros(shape=(len(pmt_ids)),dtype=PMTType)
                         pmt['id'] = pmt_ids.cpu().detach().numpy()
