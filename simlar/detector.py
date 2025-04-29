@@ -65,7 +65,7 @@ def pmt_collection_efficiency(x: torch.Tensor, **kwargs):
     -------
     efficiency: tensor of efficiencies (N_photon, N_pmt)
     '''
-
     sigmoid_coeff = kwargs.get('sigmoid_coeff', 0.15)
     efficiency = 1 / (1 + torch.exp(-sigmoid_coeff * 180. / torch.pi * (torch.abs(torch.pi / 2 - x) - torch.pi / 4)))
     return efficiency
+    

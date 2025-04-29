@@ -26,6 +26,7 @@ class PhotonTransport:
         self.time_resolution = config['SIMULATION']['TRUTH']['photon_time_resolution']
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
+        self.mean_pe_threshold = config['SIMULATION']['TRUTH']['mean_pe_threshold']
         self.device = 'cpu'
         self.debug_mode = config.get('DEBUG', False)
 
@@ -116,19 +117,23 @@ class PhotonTransport:
             res_n  = []
             for j, ppos in enumerate(pmt_pos):
                 ts, ts_map = torch.unique(tof[:,j],return_inverse=True)
-
-                res_t.append(ts)
-                res_id.append(torch.ones(size=(len(ts),),dtype=torch.int32,device=self.device)*pmt_ids[j])
-
                 n = torch.zeros(size=(len(ts),),dtype=torch.float32,device=self.device)
                 n.index_add_(0, ts_map, nph_survived[:,j])
-                res_n.append(n)
+                
+                threshold = n >= self.mean_pe_threshold
+                # Remove entries with expected mean photo electrons below threshold value
+
+                res_t.append(ts[threshold])
+                res_id.append(torch.ones(size=(len(res_t[-1]),),dtype=torch.int32,device=self.device)*pmt_ids[j])
+                res_n.append(n[threshold])
 
             res_id_v.append(torch.concat(res_id))
             res_t_v.append(torch.concat(res_t))
             res_n_v.append(torch.concat(res_n))
-
-        return torch.concat(res_id_v), torch.concat(res_t_v), torch.concat(res_n_v)
+        if len(res_id_v):
+            return torch.concat(res_id_v), torch.concat(res_t_v), torch.concat(res_n_v)
+        else:
+            return None, None, None
 
     def survived_photon2pmts(self, nph, pos, pmt_pos):
         '''
@@ -152,8 +157,8 @@ class PhotonTransport:
         # to verify tof need the float value, otherwise all 0
         #tof = (r.T / self.c + pos[:, 3]).T
 
-
         ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
+
         return nph.unsqueeze(1) * number_frac * ce, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
