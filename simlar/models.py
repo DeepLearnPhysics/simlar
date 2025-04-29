@@ -146,10 +146,12 @@ class PhotonTransport:
             tof: torch.Tensor
                 A tensor of shape (N, M) containing the time of flight for each photon to each PMT.
         '''
+
         r, arccos, number_frac = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
         tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
         # to verify tof need the float value, otherwise all 0
         #tof = (r.T / self.c + pos[:, 3]).T
+
 
         ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
         return nph.unsqueeze(1) * number_frac * ce, tof
