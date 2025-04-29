@@ -146,12 +146,12 @@ class PhotonTransport:
             tof: torch.Tensor
                 A tensor of shape (N, M) containing the time of flight for each photon to each PMT.
         '''
-        r, arcsin, number_frac = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
+        r, arccos, number_frac = self.propagate_photon2pmts(pos[:, :3], pmt_pos)
         tof = ((r.T / self.c + pos[:, 3]) * self.ns2bin + 0.5).T.to(torch.int32)
         # to verify tof need the float value, otherwise all 0
         #tof = (r.T / self.c + pos[:, 3]).T
 
-        ce = pmt_collection_efficiency(arcsin, sigmoid_coeff=self.sigmoid_coeff)
+        ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
         return nph.unsqueeze(1) * number_frac * ce, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
@@ -174,16 +174,18 @@ class PhotonTransport:
         '''
         r = torch.cdist(photon_pos, pmt_pos)
         dx = torch.abs(photon_pos[:, None, 0] - pmt_pos[None, :, 0])
-        sin = torch.clamp(torch.abs(dx / r), max=1.0)
-        arcsin = torch.asin(sin)
+        #sin = torch.clamp(torch.abs(dx / r), max=1.0)
+        #arcsin = torch.asin(sin)
+        ### Bug-fix: pmts are placed in y-z plane, e.g. fixed x coordinates!
+        cos = torch.clamp(torch.abs(dx / r), max=1.0)
+        arccos = torch.acos(cos)
+        #number_frac = torch.atan(self.sensor_radius * torch.sqrt(1 - sin**2) / r) / torch.pi
+        number_frac = 0.5 * r * ( 1/r - 1/(torch.sqrt(cos**2 * self.sensor_radius**2 + r**2)))
 
-
-        number_frac = torch.atan(self.sensor_radius * torch.sqrt(1 - sin**2) / r) / torch.pi
-
-        if self.debug_mode and torch.isnan(arcsin).any():
-            mask = torch.isnan(arcsin)
-            raise ValueError("arcsin is NaN, r input: ", r[mask],
+        if self.debug_mode and torch.isnan(arccos).any():
+            mask = torch.isnan(arccos)
+            raise ValueError("arccos is NaN, r input: ", r[mask],
                              " dx input: ", dx[mask], " angle input: ",
-                             arcsin[mask], " number_frac: ", number_frac[mask])
+                             arccos[mask], " number_frac: ", number_frac[mask])
             
-        return r, arcsin, number_frac
+        return r, arccos, number_frac
