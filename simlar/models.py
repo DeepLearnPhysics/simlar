@@ -180,7 +180,8 @@ class PhotonTransport:
         cos = torch.clamp(torch.abs(dx / r), max=1.0)
         arccos = torch.acos(cos)
         #number_frac = torch.atan(self.sensor_radius * torch.sqrt(1 - sin**2) / r) / torch.pi
-        number_frac = 0.5 * r * ( 1/r - 1/(torch.sqrt(cos**2 * self.sensor_radius**2 + r**2)))
+        factor = torch.sqrt(cos**2 * self.sensor_radius**2 + r**2)
+        number_frac = 0.5 * ( 1. - r / factor )
 
         if self.debug_mode and torch.isnan(arccos).any():
             mask = torch.isnan(arccos)
