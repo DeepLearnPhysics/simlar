@@ -26,6 +26,7 @@ class PhotonTransport:
         self.time_resolution = config['SIMULATION']['TRUTH']['photon_time_resolution']
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
+        self.use_ang_acc = config['GEOMETRY']['PMT'].get('use_ang_acc', False)
         self.device = 'cpu'
         self.debug_mode = config.get('DEBUG', False)
 
@@ -152,7 +153,11 @@ class PhotonTransport:
         #tof = (r.T / self.c + pos[:, 3]).T
 
         ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
-        return nph.unsqueeze(1) * number_frac * ce, tof
+        if not self.use_ang_acc:
+            n_survived = nph.unsqueeze(1) * number_frac
+        else:
+            n_survived = nph.unsqueeze(1) * number_frac * ce
+        return n_survived, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
         '''
