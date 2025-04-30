@@ -27,6 +27,7 @@ class PhotonTransport:
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
         self.mean_pe_threshold = config['SIMULATION']['TRUTH']['mean_pe_threshold']
+        self.use_ang_acc = config['GEOMETRY']['PMT'].get('use_ang_acc', False)
         self.device = 'cpu'
         self.debug_mode = config.get('DEBUG', False)
 
@@ -119,7 +120,7 @@ class PhotonTransport:
                 ts, ts_map = torch.unique(tof[:,j],return_inverse=True)
                 n = torch.zeros(size=(len(ts),),dtype=torch.float32,device=self.device)
                 n.index_add_(0, ts_map, nph_survived[:,j])
-                
+
                 threshold = n >= self.mean_pe_threshold
                 # Remove entries with expected mean photo electrons below threshold value
 
@@ -158,8 +159,11 @@ class PhotonTransport:
         #tof = (r.T / self.c + pos[:, 3]).T
 
         ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
-
-        return nph.unsqueeze(1) * number_frac * ce, tof
+        if not self.use_ang_acc:
+            n_survived = nph.unsqueeze(1) * number_frac
+        else:
+            n_survived = nph.unsqueeze(1) * number_frac * ce
+        return n_survived, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
         '''

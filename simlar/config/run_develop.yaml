@@ -1,6 +1,5 @@
 GEOMETRY: "geometry_develop"
 PHYSICS:  "physics_develop"
 SIMULATION: "simulation_develop"
-TRAINING: "training_develop"
 DEVICE: "cuda"
 DEBUG: False
