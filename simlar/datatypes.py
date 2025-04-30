@@ -10,6 +10,7 @@ EventType = np.dtype([
 h5_event_dtype = h5.vlen_dtype(EventType)
 
 TPCType = np.dtype([
+    ('track_id', np.int32),
     ('ix', np.int32),
     ('iy', np.int32),
     ('iz', np.int32),
@@ -22,6 +23,6 @@ h5_tpc_dtype = h5.vlen_dtype(TPCType)
 PMTType = np.dtype([
     ('id', np.int32),
     ('t', np.int32),
-    ('nphotons', np.int32),
+    ('nphotons', np.float32),
 ])
 h5_pmt_dtype = h5.vlen_dtype(PMTType)
