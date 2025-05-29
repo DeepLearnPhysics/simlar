@@ -1,5 +1,5 @@
 import torch
-from .detector import generate_pmt_positions, pmt_collection_efficiency
+from detector import generate_pmt_positions, pmt_collection_efficiency
 
 
 class PhotonTransport:
@@ -26,7 +26,7 @@ class PhotonTransport:
         self.time_resolution = config['SIMULATION']['TRUTH']['photon_time_resolution']
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
-        self.mean_pe_threshold = config['SIMULATION']['TRUTH']['mean_pe_threshold']
+        self.mean_pe_threshold = config['SIMULATION']['TRUTH'].get('mean_pe_threshold', 0)
         self.use_ang_acc = config['GEOMETRY']['PMT'].get('use_ang_acc', False)
         self.device = 'cpu'
         self.debug_mode = config.get('DEBUG', False)
@@ -136,7 +136,7 @@ class PhotonTransport:
         else:
             return None, None, None
 
-    def survived_photon2pmts(self, nph, pos, pmt_pos):
+    def survived_photon2pmts(self, nph, pos, pmt_pos, return_acc=False):
         '''
             Function to calculate the number of photoelectrons detected by PMTs.
             Parameters
@@ -145,6 +145,10 @@ class PhotonTransport:
                 A tensor of shape (N,) containing the number of photons emitted from each point.
             points : torch.Tensor
                 A tensor of shape (N, 4) containing the (x, y, z, time) coordinates of each photon emission point.
+            pmt_pos : torch.Tensor
+                A tensor of shape (M, 3) containing the PMT coordinates.
+            return_acc : bool
+                If True, returns the acceptance rate of photons for each PMT.
             Returns
             -------
             nph_survived: torch.Tensor
@@ -158,12 +162,15 @@ class PhotonTransport:
         # to verify tof need the float value, otherwise all 0
         #tof = (r.T / self.c + pos[:, 3]).T
 
-        ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
-        if not self.use_ang_acc:
+        if self.use_ang_acc:
+            ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
+            number_frac *= ce
+
+        if not return_acc:
             n_survived = nph.unsqueeze(1) * number_frac
+            return n_survived, tof
         else:
-            n_survived = nph.unsqueeze(1) * number_frac * ce
-        return n_survived, tof
+            return number_frac, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
         '''
