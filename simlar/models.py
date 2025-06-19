@@ -20,6 +20,7 @@ class PhotonTransport:
         '''
         self.light_yield = config['PHYSICS']['light_yield']
         self.cathode_thickness = config['GEOMETRY']['TPC']['cathode_thickness']
+        self.n_pmt_walls = config['GEOMETRY']['PMT'].get('n_pmt_walls', 2)
         self.active_xrange = config['GEOMETRY']['TPC']['active_volume']['x']
         self.c = config['PHYSICS']['light_speed']
         self.c /= config['PHYSICS']['lar_refraction_index']
@@ -38,10 +39,10 @@ class PhotonTransport:
         lz = lz[1] - lz[0]
         spacing = config['GEOMETRY']['PMT']['sensor_spacing']
         self.gap_pmt_active = config['GEOMETRY']['PMT']['gap_pmt_active']
-        self.pmt_positions, self.pmt_ids= generate_pmt_positions(lx=lx,
+        self.pmt_positions, self.pmt_ids = generate_pmt_positions(lx=lx,
             ly=ly,lz=lz,
             spacing_y=spacing,spacing_z=spacing,
-            gap_pmt_active=self.gap_pmt_active)
+            gap_pmt_active=self.gap_pmt_active, n_pmt_walls=self.n_pmt_walls)
         self.sensor_radius = config['GEOMETRY']['PMT']['sensor_radius']
 
     def to(self,device):
@@ -78,7 +79,7 @@ class PhotonTransport:
         '''
         return de * self.light_yield
 
-    def get_pe(self, num_photons,points):
+    def get_pe(self, num_photons, points):
         '''
         Function to calculate the number of photoelectrons detected by PMTs.
         Parameters
@@ -96,11 +97,19 @@ class PhotonTransport:
         torch.Tensor
             A tensor of shape (P,) containing the number of photoelectrons detected at each PMT and time bin.
         '''
-        
-        pos_mask_v = [(points[:,0]>  self.cathode_thickness/2.) & (points[:,0]<(self.active_xrange[1]+self.gap_pmt_active)),
-                    (points[:,0]<(-self.cathode_thickness/2.)) & (points[:,0]>(self.active_xrange[0]-self.gap_pmt_active))]
 
-        pmt_mask_v = [self.pmt_positions[:,0]>self.cathode_thickness/2., self.pmt_positions[:,0]<(-self.cathode_thickness/2.)]
+        if self.n_pmt_walls == 2:
+            pos_mask_v = [(points[:,0]> self.cathode_thickness/2.) & (points[:,0]<(self.active_xrange[1]+self.gap_pmt_active)),
+                        (points[:,0]<(-self.cathode_thickness/2.)) & (points[:,0]>(self.active_xrange[0]-self.gap_pmt_active))]
+
+            pmt_mask_v = [self.pmt_positions[:,0]>self.cathode_thickness/2., self.pmt_positions[:,0]<(-self.cathode_thickness/2.)]
+
+        elif self.n_pmt_walls == 1:
+            pos_mask_v = [(points[:,0]>self.cathode_thickness/2.) & (points[:,0]<(self.active_xrange[1]+self.gap_pmt_active))]
+            pmt_mask_v = [self.pmt_positions[:,0]>self.cathode_thickness/2.]
+
+        else:
+            raise ValueError("Number of PMT walls must be 1 or 2.")
 
         pmt_data=[]
         res_id_v,res_t_v,res_n_v = [],[],[]
