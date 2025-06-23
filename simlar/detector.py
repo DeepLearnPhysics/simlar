@@ -27,14 +27,17 @@ def generate_pmt_positions(lx, ly, lz, spacing_y, spacing_z, gap_pmt_active, n_p
         Tensor containing the IDs of the PMTs.
     """
 
-    grid_y = int(ly / spacing_y)
-    grid_z = int(lz / spacing_z)
+    grid_y = int(ly/spacing_y) + 1
+    grid_z = int(lz/spacing_z) + 1
     print(f"Total PMT number is {n_pmt_walls * grid_y * grid_z}")
 
     # Generate hexagonal grid coordinates
     y_side, z_side = torch.meshgrid(torch.arange(grid_y), torch.arange(grid_z))
-    y_side = y_side * spacing_y - ly / 2
-    z_side = z_side * spacing_z - lz / 2
+    spacing_buffer_y = ly - (grid_y-1) * spacing_y
+    spacing_buffer_z = lz - (grid_z-1) * spacing_z
+    print(f"Spacing buffer in y: {spacing_buffer_y}, z: {spacing_buffer_z}")
+    y_side = y_side * spacing_y - ly/2 + (spacing_buffer_y/2 - spacing_y/4)
+    z_side = z_side * spacing_z - lz/2 + spacing_buffer_z/2
     y_side = y_side.to(torch.float32)
     z_side = z_side.to(torch.float32)
     for i in range(y_side.shape[1]):
