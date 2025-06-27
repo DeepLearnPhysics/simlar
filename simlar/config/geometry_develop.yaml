@@ -15,3 +15,4 @@ PMT:
   sensor_spacing: 500  # mm
   sensor_radius:   50  # mm
   ce_angle_thres: 0.15 # 1/degree?
+  use_ang_acc: False
