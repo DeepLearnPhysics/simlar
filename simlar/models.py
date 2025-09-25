@@ -39,11 +39,14 @@ class PhotonTransport:
         lz = lz[1] - lz[0]
         spacing = config['GEOMETRY']['PMT']['sensor_spacing']
         self.gap_pmt_active = config['GEOMETRY']['PMT']['gap_pmt_active']
-        self.pmt_positions, self.pmt_ids = generate_pmt_positions(lx=lx,
-            ly=ly,lz=lz,
-            spacing_y=spacing,spacing_z=spacing,
-            gap_pmt_active=self.gap_pmt_active, n_pmt_walls=self.n_pmt_walls)
         self.sensor_radius = config['GEOMETRY']['PMT']['sensor_radius']
+        self.pmt_positions, self.pmt_ids = generate_pmt_positions(lx=lx,
+                                                                  ly=ly,lz=lz,
+                                                                  spacing_y=spacing,spacing_z=spacing,
+                                                                  gap_pmt_active=self.gap_pmt_active, n_pmt_walls=self.n_pmt_walls,
+                                                                  pmt_radius = self.sensor_radius
+                                                                  
+        )
 
     def to(self,device):
         '''
