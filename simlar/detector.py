@@ -53,7 +53,7 @@ def generate_pmt_positions(
     y_side = y_side.astype(np.float32)
     z_side = z_side.astype(np.float32)
 
-    
+
     for i in range(y_side.shape[1]):
         if i % 2 == 1:
             y_side[:, i] += spacing_y / 2 - pmt_radius

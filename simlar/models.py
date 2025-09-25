@@ -1,5 +1,5 @@
 import torch
-from .detector import generate_pmt_positions, pmt_collection_efficiency
+from detector import generate_pmt_positions, pmt_collection_efficiency
 
 
 class PhotonTransport:
