@@ -20,13 +20,14 @@ class PhotonTransport:
         '''
         self.light_yield = config['PHYSICS']['light_yield']
         self.cathode_thickness = config['GEOMETRY']['TPC']['cathode_thickness']
+        self.n_pmt_walls = config['GEOMETRY']['PMT'].get('n_pmt_walls', 2)
         self.active_xrange = config['GEOMETRY']['TPC']['active_volume']['x']
         self.c = config['PHYSICS']['light_speed']
         self.c /= config['PHYSICS']['lar_refraction_index']
         self.time_resolution = config['SIMULATION']['TRUTH']['photon_time_resolution']
         self.ns2bin = 0.001 / self.time_resolution
         self.sigmoid_coeff = config['GEOMETRY']['PMT']['ce_angle_thres']
-        self.mean_pe_threshold = config['SIMULATION']['TRUTH']['mean_pe_threshold']
+        self.mean_pe_threshold = config['SIMULATION']['TRUTH'].get('mean_pe_threshold', 0)
         self.use_ang_acc = config['GEOMETRY']['PMT'].get('use_ang_acc', False)
         self.device = 'cpu'
         self.debug_mode = config.get('DEBUG', False)
@@ -38,11 +39,14 @@ class PhotonTransport:
         lz = lz[1] - lz[0]
         spacing = config['GEOMETRY']['PMT']['sensor_spacing']
         self.gap_pmt_active = config['GEOMETRY']['PMT']['gap_pmt_active']
-        self.pmt_positions, self.pmt_ids= generate_pmt_positions(lx=lx,
-            ly=ly,lz=lz,
-            spacing_y=spacing,spacing_z=spacing,
-            gap_pmt_active=self.gap_pmt_active)
         self.sensor_radius = config['GEOMETRY']['PMT']['sensor_radius']
+        self.pmt_positions, self.pmt_ids = generate_pmt_positions(lx=lx,
+                                                                  ly=ly,lz=lz,
+                                                                  spacing_y=spacing,spacing_z=spacing,
+                                                                  gap_pmt_active=self.gap_pmt_active, n_pmt_walls=self.n_pmt_walls,
+                                                                  pmt_radius = self.sensor_radius
+                                                                  
+        )
 
     def to(self,device):
         '''
@@ -78,7 +82,7 @@ class PhotonTransport:
         '''
         return de * self.light_yield
 
-    def get_pe(self, num_photons,points):
+    def get_pe(self, num_photons, points):
         '''
         Function to calculate the number of photoelectrons detected by PMTs.
         Parameters
@@ -96,11 +100,19 @@ class PhotonTransport:
         torch.Tensor
             A tensor of shape (P,) containing the number of photoelectrons detected at each PMT and time bin.
         '''
-        
-        pos_mask_v = [(points[:,0]>  self.cathode_thickness/2.) & (points[:,0]<(self.active_xrange[1]+self.gap_pmt_active)),
-                    (points[:,0]<(-self.cathode_thickness/2.)) & (points[:,0]>(self.active_xrange[0]-self.gap_pmt_active))]
 
-        pmt_mask_v = [self.pmt_positions[:,0]>self.cathode_thickness/2., self.pmt_positions[:,0]<(-self.cathode_thickness/2.)]
+        if self.n_pmt_walls == 2:
+            pos_mask_v = [(points[:,0]> self.cathode_thickness/2.) & (points[:,0]<(self.active_xrange[1]+self.gap_pmt_active)),
+                        (points[:,0]<(-self.cathode_thickness/2.)) & (points[:,0]>(self.active_xrange[0]-self.gap_pmt_active))]
+
+            pmt_mask_v = [self.pmt_positions[:,0]>self.cathode_thickness/2., self.pmt_positions[:,0]<(-self.cathode_thickness/2.)]
+
+        elif self.n_pmt_walls == 1:
+            pos_mask_v = [(points[:,0]>self.cathode_thickness/2.) & (points[:,0]<(self.active_xrange[1]+self.gap_pmt_active))]
+            pmt_mask_v = [self.pmt_positions[:,0]>self.cathode_thickness/2.]
+
+        else:
+            raise ValueError("Number of PMT walls must be 1 or 2.")
 
         pmt_data=[]
         res_id_v,res_t_v,res_n_v = [],[],[]
@@ -136,7 +148,7 @@ class PhotonTransport:
         else:
             return None, None, None
 
-    def survived_photon2pmts(self, nph, pos, pmt_pos):
+    def survived_photon2pmts(self, nph, pos, pmt_pos, return_acc=False):
         '''
             Function to calculate the number of photoelectrons detected by PMTs.
             Parameters
@@ -145,6 +157,10 @@ class PhotonTransport:
                 A tensor of shape (N,) containing the number of photons emitted from each point.
             points : torch.Tensor
                 A tensor of shape (N, 4) containing the (x, y, z, time) coordinates of each photon emission point.
+            pmt_pos : torch.Tensor
+                A tensor of shape (M, 3) containing the PMT coordinates.
+            return_acc : bool
+                If True, returns the acceptance rate of photons for each PMT.
             Returns
             -------
             nph_survived: torch.Tensor
@@ -158,12 +174,15 @@ class PhotonTransport:
         # to verify tof need the float value, otherwise all 0
         #tof = (r.T / self.c + pos[:, 3]).T
 
-        ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
-        if not self.use_ang_acc:
+        if self.use_ang_acc:
+            ce = pmt_collection_efficiency(arccos, sigmoid_coeff=self.sigmoid_coeff)
+            number_frac *= ce
+
+        if not return_acc:
             n_survived = nph.unsqueeze(1) * number_frac
+            return n_survived, tof
         else:
-            n_survived = nph.unsqueeze(1) * number_frac * ce
-        return n_survived, tof
+            return number_frac, tof
 
     def propagate_photon2pmts(self, photon_pos, pmt_pos):
         '''
